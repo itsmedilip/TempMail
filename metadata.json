@@ -1,0 +1,5 @@
+{
+  "name": "Temp Mail",
+  "description": "A fully functional, mobile-friendly temporary email web app. It automatically generates a temporary email, fetches emails periodically, and displays them in a clean inbox. Features include dark mode, copy to clipboard, auto-refresh, and toast notifications, all powered by the Mail.tm API.",
+  "requestFramePermissions": []
+}
