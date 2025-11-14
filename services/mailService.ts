@@ -1,25 +1,63 @@
-
 import { API_BASE_URL, FETCH_TIMEOUT } from '../constants';
 import { Domain, Account, TokenData, Message, MessageDetails, HydraCollection } from '../types';
 
-const fetchWithTimeout = async <T,>(resource: string, options: RequestInit = {}): Promise<T> => {
-  const controller = new AbortController();
-  const id = setTimeout(() => controller.abort(), FETCH_TIMEOUT);
+const fetchWithTimeout = async <T,>(resource: string, options: RequestInit = {}, retries = 5, initialBackoff = 3000): Promise<T> => {
+  let backoff = initialBackoff;
+  for (let i = 0; i < retries; i++) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => {
+      console.warn(`Request to ${resource} timed out after ${FETCH_TIMEOUT}ms.`);
+      controller.abort();
+    }, FETCH_TIMEOUT);
 
-  const response = await fetch(resource, {
-    ...options,
-    signal: controller.signal
-  });
-  clearTimeout(id);
+    try {
+      const response = await fetch(resource, {
+        ...options,
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
 
-  if (!response.ok) {
-    const errorBody = await response.text();
-    console.error(`API Error: ${response.status} ${response.statusText}`, errorBody);
-    throw new Error(`Request failed with status ${response.status}`);
+      if (response.status === 429 && i < retries - 1) {
+        const jitter = Math.random() * 1000;
+        const waitTime = backoff + jitter;
+        console.warn(`Rate limited (429). Retrying in ${waitTime.toFixed(0)}ms... (Attempt ${i + 1}/${retries})`);
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+        backoff *= 2; // Exponential backoff
+        continue;
+      }
+
+      if (!response.ok) {
+        const errorBody = await response.text();
+        console.error(`API Error: ${response.status} ${response.statusText}`, errorBody);
+        throw new Error(`Request failed with status ${response.status}`);
+      }
+
+      // Handle successful but empty responses (e.g., 204 No Content)
+      if (response.status === 204) {
+        return null as T;
+      }
+
+      return await response.json();
+
+    } catch (error: any) {
+      clearTimeout(timeoutId);
+      // Check for timeout/network error and if we still have retries left
+      if ((error.name === 'AbortError' || error.message.includes('Failed to fetch')) && i < retries - 1) {
+        console.warn(`Request failed (${error.message}). Retrying in ${backoff}ms... (Attempt ${i + 1}/${retries})`);
+        await new Promise(resolve => setTimeout(resolve, backoff));
+        backoff *= 2;
+        continue;
+      }
+      
+      // On the last retry or for a non-retryable error, re-throw it.
+      throw error;
+    }
   }
-
-  return response.json();
+  
+  // This line should be unreachable if the loop logic is correct, but it's a safeguard.
+  throw new Error('API request failed after multiple retries.');
 };
+
 
 export const getDomain = async (): Promise<Domain | null> => {
   try {
@@ -50,7 +88,7 @@ export const getToken = async (address: string, password: string): Promise<Token
     return await fetchWithTimeout<TokenData>(`${API_BASE_URL}/token`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ address, password })
+      body: JSON.stringify({ username: address, password })
     });
   } catch (error) {
     console.error("Error getting token:", error);
@@ -84,7 +122,7 @@ export const getMessage = async (id: string, token: string): Promise<MessageDeta
 
 export const deleteAccount = async (id: string, token: string): Promise<void> => {
   try {
-     await fetch(`${API_BASE_URL}/accounts/${id}`, {
+     await fetchWithTimeout<void>(`${API_BASE_URL}/accounts/${id}`, {
       method: 'DELETE',
       headers: { 'Authorization': `Bearer ${token}` }
     });

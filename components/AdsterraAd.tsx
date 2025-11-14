@@ -35,8 +35,8 @@ const AdsterraAd: React.FC = () => {
     }, []);
 
     return (
-        <div ref={adContainerRef} className="w-[300px] h-[250px] bg-gray-200 dark:bg-gray-800 rounded-md overflow-hidden flex items-center justify-center text-center text-gray-500 dark:text-gray-400 relative">
-            <div className="p-2">
+        <div ref={adContainerRef} className="w-[300px] h-[250px] bg-gray-200 dark:bg-gray-800 rounded-md overflow-hidden text-gray-500 dark:text-gray-400 relative grid place-items-center [&>*]:col-start-1 [&>*]:row-start-1">
+            <div className="text-center p-2">
                 <p className="font-semibold text-sm">Advertisement (300x250)</p>
                 <p className="text-xs mt-1">Ad not loading? Check ad-blocker.</p>
             </div>

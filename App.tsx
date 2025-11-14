@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { getDomain, createAccount, getToken, getMessages, getMessage, deleteAccount } from './services/mailService';
-import { Account, Message, MessageDetails, ToastData } from './types';
+import { Account, Message, MessageDetails, ToastData, TokenData } from './types';
 import SplashScreen from './components/SplashScreen';
 import EmailDisplay from './components/EmailDisplay';
 import Inbox from './components/Inbox';
@@ -86,7 +86,7 @@ const App: React.FC = () => {
         return prevTime - 1;
       });
     }, 1000);
-  }, [stopTimer]);
+  }, [stopTimer, showToast]);
 
   const extendTimer = () => {
     setTimeLeft(TIMER_DURATION);
@@ -122,22 +122,52 @@ const App: React.FC = () => {
       passwordRef.current = generateRandomString(12);
 
       const newAccount = await createAccount(address, passwordRef.current);
-      const newTokenData = await getToken(address, passwordRef.current);
+      
+      let tokenData: TokenData | null = null;
+      let attempts = 0;
+      const maxAttempts = 5;
+      let backoff = 2000;
+
+      while (!tokenData && attempts < maxAttempts) {
+        attempts++;
+        try {
+          tokenData = await getToken(address, passwordRef.current);
+        } catch (error: any) {
+          // Retry on 401/404, which can indicate replication delay
+          if ((error.message?.includes('401') || error.message?.includes('404')) && attempts < maxAttempts) {
+            console.warn(`getToken failed (attempt ${attempts}), retrying after ${backoff}ms...`);
+            await new Promise(resolve => setTimeout(resolve, backoff));
+            backoff *= 2; // exponential backoff
+          } else {
+            throw error; // Re-throw if it's a different error or the last attempt
+          }
+        }
+      }
+
+      if (!tokenData) {
+        throw new Error("Could not get authentication token after multiple retries.");
+      }
 
       setAccount(newAccount);
-      setToken(newTokenData.token);
-      startInboxCheck(newTokenData.token);
+      setToken(tokenData.token);
+      startInboxCheck(tokenData.token);
       startTimer();
       setAppState('ready');
       showToast(isDelete ? "Account deleted. New email generated!" : "New temporary email generated!", 'success');
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to create new email:", error);
-      showToast("Failed to create new email. Please try again.", 'error');
+      if (error.message?.includes('429')) {
+        showToast("Too many requests. Please wait a moment and try again.", 'error');
+      } else if (error.message?.includes('401') || error.message.includes('authentication token')) {
+         showToast("Authentication failed. Could not get a session token.", 'error');
+      } else {
+        showToast("Failed to create a new email. Please check your connection and try again.", 'error');
+      }
       setAppState('error');
     } finally {
       setIsLoading(false);
     }
-  }, [account, token, cleanup, startTimer]);
+  }, [account, token, cleanup, startTimer, showToast]);
 
   const checkInbox = useCallback(async (currentToken: string) => {
     if (!currentToken) return;
@@ -165,7 +195,7 @@ const App: React.FC = () => {
     } finally {
       setIsRefreshing(false);
     }
-  }, [handleCreateNewEmail]);
+  }, [handleCreateNewEmail, showToast]);
 
 
   const startInboxCheck = (currentToken: string) => {
@@ -227,9 +257,9 @@ const App: React.FC = () => {
   }
   
   return (
-    <div className="min-h-screen bg-[#f2f3f7] text-gray-800 dark:text-gray-200 font-sans flex flex-col">
+    <div className="min-h-screen bg-[#f2f3f7] dark:bg-[#17191f] text-gray-800 dark:text-gray-200 font-sans flex flex-col pb-20">
       <AdsterraSocialBarAd />
-      <Header />
+      <Header isDarkMode={isDarkMode} toggleDarkMode={toggleDarkMode} />
       <main className="container mx-auto px-4 py-8 flex-grow flex flex-col">
           <div className="w-full hidden md:flex justify-center mb-8">
             <AdsterraBannerAd />
@@ -246,7 +276,7 @@ const App: React.FC = () => {
             onCopy={handleCopyEmail}
           />
           
-          <div className="mt-8 flex-grow flex flex-col min-h-0 bg-[#2e333b] shadow-md rounded-md">
+          <div className="mt-8 flex-grow flex flex-col min-h-0 bg-white dark:bg-[#2e333b] shadow-md rounded-md">
             {selectedMessage ? (
               <MessageView 
                 message={selectedMessage}
