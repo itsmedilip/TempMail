@@ -231,7 +231,7 @@ const App: React.FC = () => {
       <AdsterraSocialBarAd />
       <Header />
       <main className="container mx-auto px-4 py-8 flex-grow flex flex-col">
-          <div className="w-full flex justify-center mb-8">
+          <div className="w-full hidden md:flex justify-center mb-8">
             <AdsterraBannerAd />
           </div>
           <EmailDisplay 

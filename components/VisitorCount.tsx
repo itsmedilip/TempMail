@@ -4,24 +4,18 @@ const VisitorCount: React.FC = () => {
   const [count, setCount] = useState<number | null>(null);
 
   useEffect(() => {
-    // Initialize with a random starting number to feel authentic
-    if (count === null) {
-      setCount(Math.floor(Math.random() * (350 - 150 + 1)) + 150);
-    }
+    // Initialize with a realistic starting number to simulate a history of visits.
+    const initialCount = Math.floor(15000 + Math.random() * 5000);
+    setCount(initialCount);
 
-    const interval = setInterval(() => {
-      setCount(prevCount => {
-        if (prevCount === null) return null;
-        // Fluctuate the count by a small random number
-        const fluctuation = Math.floor(Math.random() * 5) - 2; // -2, -1, 0, 1, 2
-        const newCount = prevCount + fluctuation;
-        // Ensure the count doesn't drop below a minimum threshold
-        return Math.max(100, newCount);
-      });
+    // Set up an interval to simulate new visitors over time.
+    const intervalId = setInterval(() => {
+      setCount(prevCount => (prevCount ? prevCount + Math.floor(Math.random() * 3) + 1 : initialCount));
     }, 3000); // Update every 3 seconds
 
-    return () => clearInterval(interval);
-  }, [count]);
+    // Cleanup interval on component unmount
+    return () => clearInterval(intervalId);
+  }, []);
 
   if (count === null) {
     return (
@@ -30,7 +24,7 @@ const VisitorCount: React.FC = () => {
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-gray-400 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-gray-500"></span>
           </span>
-          <span>... Live Visitors</span>
+          <span>... Total Visits</span>
       </div>
     );
   }
@@ -41,7 +35,7 @@ const VisitorCount: React.FC = () => {
         <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
         <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
       </span>
-      <span>{count.toLocaleString()} Live Visitors</span>
+      <span>{count.toLocaleString()} Total Visits</span>
     </div>
   );
 };
