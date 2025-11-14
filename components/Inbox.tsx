@@ -2,6 +2,7 @@ import React from 'react';
 import { Message } from '../types';
 import { formatDate } from '../utils/date';
 import { escapeHTML } from '../utils/string';
+import AdsterraAd from './AdsterraAd';
 
 interface InboxProps {
   messages: Message[];
@@ -34,13 +35,27 @@ const Inbox: React.FC<InboxProps> = ({ messages, onSelectMessage }) => {
       </div>
       {messages.length > 0 ? (
         <ul className="no-scrollbar overflow-y-auto flex-grow">
-          {messages.map(message => (
-            <InboxItem 
+          {messages.flatMap((message, index) => {
+            const messageItem = (
+              <InboxItem 
                 key={message.id} 
                 message={message} 
                 onClick={() => onSelectMessage(message.id)} 
-            />
-          ))}
+              />
+            );
+
+            // Show an ad after the 2nd message, and then every 5 messages after that.
+            if (index === 1 || (index > 1 && (index - 1) % 5 === 0)) {
+              const adItem = (
+                <li key={`ad-${index}`} className="p-4 flex justify-center border-b border-gray-700">
+                  <AdsterraAd />
+                </li>
+              );
+              return [messageItem, adItem];
+            }
+
+            return [messageItem];
+          })}
         </ul>
       ) : (
         <div className="flex-grow flex flex-col items-center justify-center text-center p-8 text-gray-400 min-h-[300px]">

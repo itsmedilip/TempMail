@@ -13,6 +13,8 @@ import Footer from './components/Footer';
 import Modal from './components/Modal';
 import { getPageContent } from './components/PageContent';
 import InfoBox from './components/InfoBox';
+import AdsterraBannerAd from './components/AdsterraBannerAd';
+import AdsterraSocialBarAd from './components/AdsterraSocialBarAd';
 
 type AppState = 'splash' | 'initializing' | 'ready' | 'error';
 
@@ -226,8 +228,12 @@ const App: React.FC = () => {
   
   return (
     <div className="min-h-screen bg-[#f2f3f7] text-gray-800 dark:text-gray-200 font-sans flex flex-col">
+      <AdsterraSocialBarAd />
       <Header />
       <main className="container mx-auto px-4 py-8 flex-grow flex flex-col">
+          <div className="w-full flex justify-center mb-8">
+            <AdsterraBannerAd />
+          </div>
           <EmailDisplay 
             email={account?.address}
             onRefresh={() => token && checkInbox(token)}
@@ -247,6 +253,7 @@ const App: React.FC = () => {
                 onBack={() => setSelectedMessage(null)}
                 onDelete={handleDeleteMessage}
                 isDarkMode={isDarkMode}
+                showToast={showToast}
               />
             ) : (
               <Inbox 
